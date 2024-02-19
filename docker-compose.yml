@@ -1,0 +1,63 @@
+---
+version: "3.8"
+
+services:
+  bitwarden-unified:
+    depends_on:
+      - bitwarden-unified-db
+    env_file:
+      - settings.env
+    image: bitwarden/self-host:beta
+    restart: always
+#    ports:
+#      - "80:8080"
+#      - "443:8443"
+    #ports need to be exposed
+    ports:
+      #- "8443:443"
+      - "8080:8080"
+    volumes:
+      - ./bitwarden-unified/data:/etc/bitwarden
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.bw.rule=Host(`bw.yourdomain.com`)"
+        - "traefik.http.routers.bw.entrypoints=websecure"
+        - "traefik.http.routers.bw.tls=true"
+        - "traefik.http.routers.bw.tls.certresolver=letsencrypt"
+        - "traefik.http.services.bw.loadbalancer.server.port=8080"
+    networks:
+      - bw-internal
+      - traefik-network
+
+  # MariaDB Example
+  bitwarden-unified-db:
+    environment:
+      MARIADB_USER: "bitwarden"
+      #MARIADB_PASSWORD: "super_strong_password"
+      MARIADB_PASSWORD_FILE: /run/secrets/bw-mariadb-user-password
+      MARIADB_DATABASE: "bitwarden_vault"
+      MARIADB_RANDOM_ROOT_PASSWORD: "true"
+    image: mariadb:latest
+    restart: always
+    volumes:
+      - ./bitwarden-unified/mariadb:/var/lib/mysql
+    secrets:
+      - bw-mariadb-user-password
+    networks:
+      - bw-internal
+    
+volumes:
+  bitwarden:
+  logs:
+  data:
+
+# storing secrets with portainer
+secrets:
+  bw-mariadb-user-password:
+      external: true
+
+networks:
+  traefik-network:
+    external: true
+  bw-internal:
